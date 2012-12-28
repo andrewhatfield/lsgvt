@@ -76,7 +76,7 @@ for vol in vols:
     f.close()
 
     # parse vol file
-    levels = [['Distribute set '],['Stripe set '],['Replicate set '],['Brick ']]
+    levels = [['Distribution set '],['Stripe set '],['Replica set '],['Brick ']]
     types = ['dht','stripe','replicate','client']
     brick = {}
     for line in lines:
@@ -104,8 +104,9 @@ for vol in vols:
         if len(level) == 1: levels.remove(level)
 
     # pretty print the topology
-    print '\nTopology for volume ' + vol + ':'
+    print '\nTopology for volume ' + vol + ':\n'
 
+    print str(levels[0][0]) + str(levels[0][1][0])
     for l2_idx,l2 in enumerate(levels[0][1][1]):
         (g2v,gl) = (sp,gc) if len(levels[0][1][1]) == l2_idx + 1 else (gv,gj)
         print pad + gv
