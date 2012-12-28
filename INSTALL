@@ -1,0 +1,14 @@
+Installation instructions:
+
+It's a python file. Place it somewhere in your $PATH. Suggestions are:
+
+/usr/local/bin
+~/bin
+~/.local/bin
+
+Make it executable and you're done
+
+If, on your distro, the path /var/lib/glusterd/vols does not exist,
+you should point the variable volpath in the script to the correct location
+
+Have fun!
