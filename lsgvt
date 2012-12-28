@@ -39,7 +39,8 @@ gv = u'\u2502'              		# graphical vertical dash
 gc = u'\u2514'              		# graphical corner
 gh = u'\u2500'              		# graphical horizontal dash
 gj = u'\u251c'              		# graphical junction
-pad = '  '                  		# padding between levels
+sp = ' '                            # space
+pad = sp*2                  		# padding between levels
 
 
 # check is volpath exists
@@ -75,82 +76,56 @@ for vol in vols:
     f.close()
 
     # parse vol file
-    clients, replicas, stripes, dhts = [],[],[],[]
-    types = ['client','replicate','stripe','dht']
+    levels = [['Distribute set '],['Stripe set '],['Replicate set '],['Brick ']]
+    types = ['dht','stripe','replicate','client']
+    brick = {}
     for line in lines:
         words = line.split()
-        if words:
-            if words[0] == 'volume':
-                if len(words) < 2: continue
-                if not words[1].find('-'): continue
-                parts = words[1].split('-')
-                if len(parts) == 1: continue
-                voltype = parts[1]
-                if voltype not in types: continue
-                if voltype != 'dht':
-                    volseqnr = int(parts[2])
-            if voltype == 'client':
-                if words[0] == 'option' and words[1][:6] == 'remote':
-                    while len(clients) < volseqnr+1: clients.append({})
-                    clients[volseqnr][words[1]] = words[2]
-            if voltype == 'replicate':
-                if words[0] == 'subvolumes':
-                    replicas.append([volseqnr,[int(word.split('-')[2]) for word in words[1:]]])
-            if voltype == 'stripe':
-                if words[0] == 'subvolumes':
-                    stripes.append([volseqnr,[int(word.split('-')[2]) for word in words[1:]]])
-            if voltype == 'dht':
-                if words[0] == 'subvolumes':
-                    dhts = [int(word.split('-')[2]) for word in words[1:]]
+        if not words: continue
+        if words[0] == 'volume':
+            if len(words) < 2: continue
+            if not words[1].find('-'): continue
+            parts = words[1].split('-')
+            if len(parts) == 1: continue
+            voltype = parts[1]
+            if voltype in types:
+                volseqnr = 0 if voltype == 'dht' else int(parts[2])
+        if voltype not in types: continue
+        if words[0] == 'option' and words[1][:6] == 'remote':
+            brick[words[1]] = words[2]
+            if len(brick) == 2:
+                levels[types.index(voltype)].append([volseqnr,brick])
+                brick = {}
+        if words[0] == 'subvolumes':
+            levels[types.index(voltype)].append([volseqnr,[int(word.split('-')[2]) for word in words[1:]]])
 
-    # pretty print volume structure
-    levels = 1
-    if stripes: levels += 1
-    if replicas: levels += 1
+    # remove empty levels
+    for level in reversed(levels):
+        if len(level) == 1: levels.remove(level)
 
+    # pretty print the topology
     print '\nTopology for volume ' + vol + ':'
 
-    # distributed only
-    if levels == 1:
-        for dht_idx, dht in enumerate(dhts):
-            gl = gc if len(dhts) == dht_idx + 1 else gj
-            print pad + gv
-            print pad + gl + gh + gh + ' Brick ' + str(dht) + ': ' + clients[dht]['remote-host'] + ':' + clients[dht]['remote-subvolume']
-
-    # striped or replicated only
-    if levels == 2:
-        if stripes:
-            voltype = 'Stripe'
-            voldata = stripes
-        else:
-            voltype = 'Replica'
-            voldata = replicas
-        for dht_idx, dht in enumerate(dhts):
-            dht_dash = ' ' if len(dhts) == dht_idx + 1 else gv
-            gl = gc if len(dhts) == dht_idx + 1 else gj
-            print pad + gv
-            print pad + gl + gh + gh + ' ' + voltype + ' set ' + str(dht)
-            for item_idx, item in enumerate(voldata[dht][1]):
-                gl = gc if len(voldata[dht][1]) == item_idx + 1 else gj
-                print pad + dht_dash + pad + pad + gv
-                print pad + dht_dash + pad + pad + gl + gh +gh + ' Brick ' + str(item) + ': ' + clients[item]['remote-host'] + ':' + clients[item]['remote-subvolume']
-
-    # distributed, striped and replicated
-    if levels == 3:
-        for dht_idx, dht in enumerate(dhts):
-            dht_dash = ' ' if len(dhts) == dht_idx + 1 else gv
-            gl = gc if len(dhts) == dht_idx + 1 else gj
-            print pad + gv
-            print pad + gl + gh +gh + ' Stripe set ' + str(dht)
-            for stripe_idx, stripe in enumerate(stripes[dht][1]):
-                stripe_dash = ' ' if len(stripes[dht][1]) == stripe_idx + 1 else gv
-                gl = gc if len(stripes[dht][1]) == stripe_idx + 1 else gj
-                print pad + dht_dash + pad + pad + gv
-                print pad + dht_dash + pad + pad + gl + gh +gh + ' Replica set ' + str(stripe)
-                for replica_idx, replica in enumerate(replicas[stripe][1]):
-                    gl = gc if len(replicas[dht][1]) == replica_idx + 1 else gj
-                    print pad + dht_dash + pad + pad + stripe_dash + pad + pad + gv
-                    print pad + dht_dash + pad + pad + stripe_dash + pad + pad + gl + gh +gh + ' Brick ' + str(replica) + ': ' + clients[replica]['remote-host'] + ':' + clients[replica]['remote-subvolume']
+    for l2_idx,l2 in enumerate(levels[0][1][1]):
+        (g2v,gl) = (sp,gc) if len(levels[0][1][1]) == l2_idx + 1 else (gv,gj)
+        print pad + gv
+        line = pad + gl + gh + levels[1][0] + str(levels[1][l2+1][0])
+        if len(levels) == 2: line = line + ': ' + str(levels[1][l2+1][1]['remote-host']) + ':'  + str(levels[1][l2+1][1]['remote-subvolume'])
+        print line
+        if len(levels) > 2:
+            for l3_idx,l3 in enumerate(levels[1][l2+1][1]):
+                (g3v,gl) = (sp,gc) if len(levels[1][l2+1][1]) == l3_idx + 1 else (gv,gj)
+                print pad + g2v + pad + gv
+                line = pad + g2v + pad + gl + gh + levels[2][0] + str(levels[2][l3+1][0])
+                if len(levels) == 3: line = line + ': ' + str(levels[2][l3+1][1]['remote-host']) + ':' + str(levels[2][l3+1][1]['remote-subvolume'])
+                print line
+                if len(levels) > 3:
+                    for l4_idx,l4 in enumerate(levels[2][l3+1][1]):
+                        gl = gc if len(levels[2][l3+1][1]) == l4_idx + 1 else gj
+                        print pad + g2v + pad + g3v + pad + gv
+                        line = pad + g2v + pad + g3v + pad + gl + gh + levels[3][0]
+                        line = line + str(levels[3][l4+1][0]) + ': ' + str(levels[3][l4+1][1]['remote-host']) + ':' + str(levels[3][l4+1][1]['remote-subvolume'])
+                        print line
 
     # print whiteline @ the end
     print
