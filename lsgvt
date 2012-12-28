@@ -1,4 +1,4 @@
-#!/bin/python
+#!/usr/bin/python
 #
 #  lsgvt
 #  
@@ -41,6 +41,11 @@ gh = u'\u2500'              		# graphical horizontal dash
 gj = u'\u251c'              		# graphical junction
 pad = '  '                  		# padding between levels
 
+
+# check is volpath exists
+if not os.path.isdir(volpath):
+	print 'Directory ' + volpath + ' does not exist, is Gluster installed?'
+	sys.exit(1)
 
 # if no arguments, use all volumes
 if not vols:
