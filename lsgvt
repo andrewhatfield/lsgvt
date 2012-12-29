@@ -29,32 +29,43 @@
 #  If your distribution has another location, this should be changed in
 #  variable 'volpath'
 
-import sys, os
+import sys, os, optparse
+
+
+#  parse command line options and arguments
+
+parser = optparse.OptionParser(version='%prog version 0.2', usage='%prog [options] [volname..]',description='This program lists the topology of Gluster volumes')
+
+parser.add_option('-s', '--spacing', help='The spacing between the leaves, defaults to 1', dest='spacing', type=int, default=1)
+parser.add_option('-w', '--width', help='The width of the leaves, defaults to 2', dest='width', type=int, default=2) 
+parser.add_option('-p', '--path', help='Path to source file, defaults to /var/lib/glusterd/vols', dest='volpath', default='/var/lib/glusterd/vols')
+parser.add_option('-a', '--ascii', help='Use ascii characters to draw lines instead of unicode', dest='ascii', default=False, action='store_true')
+
+(opt, vols) = parser.parse_args()
 
 # set up variables
-volpath = '/var/lib/glusterd/vols' 	# change if necessary
-vols = sys.argv[1:]         		# command line arguments
-err = 0                     		# error boolean for deferred error handling
-gv = u'\u2502'              		# graphical vertical dash
-gc = u'\u2514'              		# graphical corner
-gh = u'\u2500'              		# graphical horizontal dash
-gj = u'\u251c'              		# graphical junction
-sp = ' '                            # space
-pad = sp*2                  		# padding between levels
+err = 0                     		    # error boolean for deferred error handling
+gv = '|' if opt.ascii else u'\u2502'    # graphical vertical dash
+gc = '+' if opt.ascii else u'\u2514'    # graphical corner
+gh = '-' if opt.ascii else u'\u2500'    # graphical horizontal dash
+gj = '+' if opt.ascii else u'\u251c'    # graphical junction
+sp = ' '                                # space
+pad = sp * opt.width             	    # padding between levels
+gh = gh * opt.width                     # length of horizontal line
 
 
 # check is volpath exists
-if not os.path.isdir(volpath):
-	print 'Directory ' + volpath + ' does not exist, is Gluster installed?'
+if not os.path.isdir(opt.volpath):
+	print 'Directory ' + opt.volpath + ' does not exist, is Gluster installed?'
 	sys.exit(1)
 
 # if no arguments, use all volumes
 if not vols:
-    vols = os.listdir(volpath)
+    vols = os.listdir(opt.volpath)
 
 # check if volumes exist
 for vol in vols:
-    if not os.path.isfile(volpath + '/' + vol + '/' + vol + '-fuse.vol'):
+    if not os.path.isfile(opt.volpath + '/' + vol + '/' + vol + '-fuse.vol'):
         print vol + ' is not a volume'
         err = 1
 
@@ -71,7 +82,7 @@ if not vols:
 
 for vol in vols:
     # read vol file
-    with open(volpath + '/' + vol + '/' + vol + '-fuse.vol') as f:
+    with open(opt.volpath + '/' + vol + '/' + vol + '-fuse.vol') as f:
         lines = f.read().split('\n')
     f.close()
 
@@ -106,26 +117,26 @@ for vol in vols:
     # pretty print the topology
     print '\nTopology for volume ' + vol + ':\n'
 
-    print str(levels[0][0]) + str(levels[0][1][0])
+    print u'{0}{1}'.format(str(levels[0][0]),str(levels[0][1][0]))
     for l2_idx,l2 in enumerate(levels[0][1][1]):
         (g2v,gl) = (sp,gc) if len(levels[0][1][1]) == l2_idx + 1 else (gv,gj)
-        print pad + gv
-        line = pad + gl + gh + levels[1][0] + str(levels[1][l2+1][0])
-        if len(levels) == 2: line = line + ': ' + str(levels[1][l2+1][1]['remote-host']) + ':'  + str(levels[1][l2+1][1]['remote-subvolume'])
+        for x in range(opt.spacing): print u'  {0}'.format(gv)
+        line = u'  {0}{1}{2}{3}'.format(gl,gh,levels[1][0],str(levels[1][l2+1][0]))
+        if len(levels) == 2: line += u': {0}:{1}'.format(str(levels[1][l2+1][1]['remote-host']),str(levels[1][l2+1][1]['remote-subvolume']))
         print line
         if len(levels) > 2:
             for l3_idx,l3 in enumerate(levels[1][l2+1][1]):
                 (g3v,gl) = (sp,gc) if len(levels[1][l2+1][1]) == l3_idx + 1 else (gv,gj)
-                print pad + g2v + pad + gv
-                line = pad + g2v + pad + gl + gh + levels[2][0] + str(levels[2][l3+1][0])
-                if len(levels) == 3: line = line + ': ' + str(levels[2][l3+1][1]['remote-host']) + ':' + str(levels[2][l3+1][1]['remote-subvolume'])
+                for x in range(opt.spacing): print u'  {0}  {1}{2}'.format(g2v,pad,gv)
+                line = u'  {0}  {1}{2}{3}{4}{5}'.format(g2v,pad,gl,gh,levels[2][0],str(levels[2][l3+1][0]))
+                if len(levels) == 3: line += u': {0}:{1}'.format(str(levels[2][l3+1][1]['remote-host']),str(levels[2][l3+1][1]['remote-subvolume']))
                 print line
                 if len(levels) > 3:
                     for l4_idx,l4 in enumerate(levels[2][l3+1][1]):
                         gl = gc if len(levels[2][l3+1][1]) == l4_idx + 1 else gj
-                        print pad + g2v + pad + g3v + pad + gv
-                        line = pad + g2v + pad + g3v + pad + gl + gh + levels[3][0]
-                        line = line + str(levels[3][l4+1][0]) + ': ' + str(levels[3][l4+1][1]['remote-host']) + ':' + str(levels[3][l4+1][1]['remote-subvolume'])
+                        for x in range(opt.spacing): print u'  {1}  {0}{2}  {0}{3}'.format(pad,g2v,g3v,gv)
+                        line = u'  {1}  {0}{2}  {0}{3}{4}{5}'.format(pad,g2v,g3v,gl,gh,levels[3][0])
+                        line += u'{0}: {1}:{2}'.format(str(levels[3][l4+1][0]),str(levels[3][l4+1][1]['remote-host']),str(levels[3][l4+1][1]['remote-subvolume']))
                         print line
 
     # print whiteline @ the end
