@@ -9,6 +9,4 @@ source. If you do not give any parameters, it shows the topology
 for all the volumes. Otherwise it will show the topology for the
 given space-separated list of volume names.
 
-For the location of the input files, it uses '/var/lib/glusterd/vols'.
-If your distribution has another location, this should be changed in
-variable 'volpath'
+use lsgvt -h for help
