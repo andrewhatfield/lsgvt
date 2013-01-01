@@ -8,7 +8,6 @@ It's a python file. Place it somewhere in your $PATH. Suggestions are:
 
 Make it executable and you're done
 
-If, on your distro, the path /var/lib/glusterd/vols does not exist,
-you should point the variable volpath in the script to the correct location
+use 'lsgvt -h' for help
 
 Have fun!
