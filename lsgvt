@@ -165,7 +165,12 @@ for vol in vols:
 
     # pretty print the topology
     print '\nTopology for volume ' + vol + ':\n'
-    print xl.format_tree()
+    try:
+        print xl.format_tree()
+    except UnicodeEncodeError:
+        print xl.format_tree().encode('ascii', 'replace')
+        print
+        print 'WARNING: this terminal does not like Unicode, try the --ascii option.'
 
     # print whiteline @ the end
     print
