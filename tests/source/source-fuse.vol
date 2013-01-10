@@ -1,0 +1,38 @@
+volume source-client-0
+    type protocol/client
+    option remote-host vm-86
+    option remote-subvolume /bricks/source
+    option transport-type tcp
+end-volume
+
+volume source-write-behind
+    type performance/write-behind
+    subvolumes source-client-0
+end-volume
+
+volume source-read-ahead
+    type performance/read-ahead
+    subvolumes source-write-behind
+end-volume
+
+volume source-io-cache
+    type performance/io-cache
+    subvolumes source-read-ahead
+end-volume
+
+volume source-quick-read
+    type performance/quick-read
+    subvolumes source-io-cache
+end-volume
+
+volume source-md-cache
+    type performance/md-cache
+    subvolumes source-quick-read
+end-volume
+
+volume source
+    type debug/io-stats
+    option latency-measurement off
+    option count-fop-hits off
+    subvolumes source-md-cache
+end-volume
