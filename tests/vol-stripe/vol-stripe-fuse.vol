@@ -1,0 +1,64 @@
+volume vol-stripe-client-0
+    type protocol/client
+    option remote-host vm-152.example.com
+    option remote-subvolume /bricks/stripe
+    option transport-type tcp
+end-volume
+
+volume vol-stripe-client-1
+    type protocol/client
+    option remote-host vm-218.example.com
+    option remote-subvolume /bricks/stripe
+    option transport-type tcp
+end-volume
+
+volume vol-stripe-client-2
+    type protocol/client
+    option remote-host vm-86.example.com
+    option remote-subvolume /bricks/stripe
+    option transport-type tcp
+end-volume
+
+volume vol-stripe-client-3
+    type protocol/client
+    option remote-host vm-91.example.com
+    option remote-subvolume /bricks/stripe
+    option transport-type tcp
+end-volume
+
+volume vol-stripe-stripe-0
+    type cluster/stripe
+    subvolumes vol-stripe-client-0 vol-stripe-client-1 vol-stripe-client-2 vol-stripe-client-3
+end-volume
+
+volume vol-stripe-write-behind
+    type performance/write-behind
+    subvolumes vol-stripe-stripe-0
+end-volume
+
+volume vol-stripe-read-ahead
+    type performance/read-ahead
+    subvolumes vol-stripe-write-behind
+end-volume
+
+volume vol-stripe-io-cache
+    type performance/io-cache
+    subvolumes vol-stripe-read-ahead
+end-volume
+
+volume vol-stripe-quick-read
+    type performance/quick-read
+    subvolumes vol-stripe-io-cache
+end-volume
+
+volume vol-stripe-md-cache
+    type performance/md-cache
+    subvolumes vol-stripe-quick-read
+end-volume
+
+volume vol-stripe
+    type debug/io-stats
+    option latency-measurement off
+    option count-fop-hits off
+    subvolumes vol-stripe-md-cache
+end-volume

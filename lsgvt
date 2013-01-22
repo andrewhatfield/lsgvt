@@ -29,6 +29,47 @@
 
 import sys, os, optparse
 
+class Xlator:
+    def __init__(self):
+        self.volname = ''
+        self.type = ''
+        self.subvolumes = []
+        self.parent = None
+        self.options = {}
+
+    def get_description(self):
+        s = '%s' % self.type
+        if self.parent and self in self.parent.subvolumes:
+            s += ' %d' % self.parent.subvolumes.index(self)
+        if self.type == 'Brick':
+            s += ': %s:%s' % (self.options['remote-host'], self.options['remote-subvolume'])
+        return s
+
+    def format_tree(self, prefix=[], last_subvol=False):
+        s = ''
+        if prefix and last_subvol:
+            # print a nice corner (like an 'L')
+            s += '%s %s\n' % (''.join(prefix[0:-1] + [' %s%s%s' % (gc, gh, gh)]), self.get_description())
+        elif prefix:
+            # print a junction (a 'T' turned 90 degrees anti-clockwise)
+            s += '%s %s\n' % (''.join(prefix[0:-1] + [' %s%s%s' % (gj, gh, gh)]), self.get_description())
+        else:
+            # this is the top of the tree, there is no prefix
+            s += self.get_description() + '\n'
+
+        for subvol in self.subvolumes:
+            # add an extra line for spacing and readability
+            s += ''.join(prefix + [' %s     ' % gv]) + '\n'
+            if self.subvolumes.index(subvol) < (len(self.subvolumes) - 1):
+                # not the last subvolume, prefix a vertical line
+                s += subvol.format_tree(prefix + [' %s     ' % gv], False)
+            else:
+                # last subvolume, prefix only empty spaces
+                s += subvol.format_tree(prefix + ['       '], True)
+
+        return s
+
+
 #  parse command line options and arguments
 
 parser = optparse.OptionParser(version='%prog version 0.2', usage='%prog [options] [volname..]',description='This program lists the topology of Gluster volumes')
@@ -84,57 +125,52 @@ for vol in vols:
     f.close()
 
     # parse vol file
-    levels = [['Distribution set '],['Stripe set '],['Replica set '],['Brick ']]
-    types = ['dht','stripe','replicate','client']
-    brick = {}
+    types = {'cluster/distribute' : 'Distribute set',
+             'cluster/stripe' : 'Stripe set',
+             'cluster/replicate' : 'Replica set',
+             'protocol/client' : 'Brick'}
+    stack = []
+    xl = None
     for line in lines:
         words = line.split()
         if not words: continue
         if words[0] == 'volume':
-            if len(words) < 2: continue
-            if not words[1].find('-'): continue
-            parts = words[1].split('-')
-            if len(parts) == 1: continue
-            voltype = parts[1]
-            if voltype in types:
-                volseqnr = 0 if voltype == 'dht' else int(parts[2])
-        if voltype not in types: continue
-        if words[0] == 'option' and words[1][:6] == 'remote':
-            brick[words[1]] = words[2]
-            if len(brick) == 2:
-                levels[types.index(voltype)].append([volseqnr,brick])
-                brick = {}
-        if words[0] == 'subvolumes':
-            levels[types.index(voltype)].append([volseqnr,[int(word.split('-')[2]) for word in words[1:]]])
+            xl = Xlator()
+            xl.volname = words[1]
+        elif words[0] == 'type':
+            if words[1] in types.keys():
+                xl.type = types[words[1]]
+            else:
+                xl.type = words[1]
+        elif words[0] == 'option':
+            xl.options[words[1]] = words[2]
+        elif words[0] == 'subvolumes':
+            xl.subvolumes = words[1:]
+        elif words[0] == 'end-volume':
+            # only keep xlators that describe the volume layout
+            if xl.type in types.values():
+                stack.append(xl)
+            xl = None
 
-    # remove empty levels
-    for level in reversed(levels):
-        if len(level) == 1: levels.remove(level)
+    # replace the subvolumes 'volname' by the xlator object
+    for xl in stack:
+        xl.subvolumes = [_xl for _xl in stack if _xl.volname in xl.subvolumes]
+        for subvol in xl.subvolumes:
+            subvol.parent = xl
+
+    # find the main volume xlator (the one without parent)
+    for xl in stack:
+        if xl.parent is None:
+            break
 
     # pretty print the topology
     print '\nTopology for volume ' + vol + ':\n'
-
-    print u'{0}{1}'.format(str(levels[0][0]),str(levels[0][1][0]))
-    for l2_idx,l2 in enumerate(levels[0][1][1]):
-        (g2v,gl) = (sp,gc) if len(levels[0][1][1]) == l2_idx + 1 else (gv,gj)
-        for x in range(opt.spacing): print u'  {0}'.format(gv)
-        line = u'  {0}{1}{2}{3}'.format(gl,gh,levels[1][0],str(levels[1][l2+1][0]))
-        if len(levels) == 2: line += u': {0}:{1}'.format(str(levels[1][l2+1][1]['remote-host']),str(levels[1][l2+1][1]['remote-subvolume']))
-        print line
-        if len(levels) > 2:
-            for l3_idx,l3 in enumerate(levels[1][l2+1][1]):
-                (g3v,gl) = (sp,gc) if len(levels[1][l2+1][1]) == l3_idx + 1 else (gv,gj)
-                for x in range(opt.spacing): print u'  {0}  {1}{2}'.format(g2v,pad,gv)
-                line = u'  {0}  {1}{2}{3}{4}{5}'.format(g2v,pad,gl,gh,levels[2][0],str(levels[2][l3+1][0]))
-                if len(levels) == 3: line += u': {0}:{1}'.format(str(levels[2][l3+1][1]['remote-host']),str(levels[2][l3+1][1]['remote-subvolume']))
-                print line
-                if len(levels) > 3:
-                    for l4_idx,l4 in enumerate(levels[2][l3+1][1]):
-                        gl = gc if len(levels[2][l3+1][1]) == l4_idx + 1 else gj
-                        for x in range(opt.spacing): print u'  {1}  {0}{2}  {0}{3}'.format(pad,g2v,g3v,gv)
-                        line = u'  {1}  {0}{2}  {0}{3}{4}{5}'.format(pad,g2v,g3v,gl,gh,levels[3][0])
-                        line += u'{0}: {1}:{2}'.format(str(levels[3][l4+1][0]),str(levels[3][l4+1][1]['remote-host']),str(levels[3][l4+1][1]['remote-subvolume']))
-                        print line
+    try:
+        print xl.format_tree()
+    except UnicodeEncodeError:
+        print xl.format_tree().encode('ascii', 'replace')
+        print
+        print 'WARNING: this terminal does not like Unicode, try the --ascii option.'
 
     # print whiteline @ the end
     print

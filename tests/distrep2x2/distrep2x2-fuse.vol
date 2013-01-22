@@ -1,0 +1,74 @@
+volume distrep2x2-client-0
+    type protocol/client
+    option remote-host vm-152.example.com
+    option remote-subvolume /bricks/distrep2x2
+    option transport-type tcp
+end-volume
+
+volume distrep2x2-client-1
+    type protocol/client
+    option remote-host vm-218.example.com
+    option remote-subvolume /bricks/distrep2x2
+    option transport-type tcp
+end-volume
+
+volume distrep2x2-client-2
+    type protocol/client
+    option remote-host vm-86.example.com
+    option remote-subvolume /bricks/distrep2x2
+    option transport-type tcp
+end-volume
+
+volume distrep2x2-client-3
+    type protocol/client
+    option remote-host vm-91.example.com
+    option remote-subvolume /bricks/distrep2x2
+    option transport-type tcp
+end-volume
+
+volume distrep2x2-replicate-0
+    type cluster/replicate
+    subvolumes distrep2x2-client-0 distrep2x2-client-1
+end-volume
+
+volume distrep2x2-replicate-1
+    type cluster/replicate
+    subvolumes distrep2x2-client-2 distrep2x2-client-3
+end-volume
+
+volume distrep2x2-dht
+    type cluster/distribute
+    subvolumes distrep2x2-replicate-0 distrep2x2-replicate-1
+end-volume
+
+volume distrep2x2-write-behind
+    type performance/write-behind
+    subvolumes distrep2x2-dht
+end-volume
+
+volume distrep2x2-read-ahead
+    type performance/read-ahead
+    subvolumes distrep2x2-write-behind
+end-volume
+
+volume distrep2x2-io-cache
+    type performance/io-cache
+    subvolumes distrep2x2-read-ahead
+end-volume
+
+volume distrep2x2-quick-read
+    type performance/quick-read
+    subvolumes distrep2x2-io-cache
+end-volume
+
+volume distrep2x2-md-cache
+    type performance/md-cache
+    subvolumes distrep2x2-quick-read
+end-volume
+
+volume distrep2x2
+    type debug/io-stats
+    option latency-measurement on
+    option count-fop-hits on
+    subvolumes distrep2x2-md-cache
+end-volume

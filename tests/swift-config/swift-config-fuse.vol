@@ -1,0 +1,64 @@
+volume swift-config-client-0
+    type protocol/client
+    option remote-host vm-152.example.com
+    option remote-subvolume /bricks/swift-config
+    option transport-type tcp
+end-volume
+
+volume swift-config-client-1
+    type protocol/client
+    option remote-host vm-218.example.com
+    option remote-subvolume /bricks/swift-config
+    option transport-type tcp
+end-volume
+
+volume swift-config-client-2
+    type protocol/client
+    option remote-host vm-86.example.com
+    option remote-subvolume /bricks/swift-config
+    option transport-type tcp
+end-volume
+
+volume swift-config-client-3
+    type protocol/client
+    option remote-host vm-91.example.com
+    option remote-subvolume /bricks/swift-config
+    option transport-type tcp
+end-volume
+
+volume swift-config-replicate-0
+    type cluster/replicate
+    subvolumes swift-config-client-0 swift-config-client-1 swift-config-client-2 swift-config-client-3
+end-volume
+
+volume swift-config-write-behind
+    type performance/write-behind
+    subvolumes swift-config-replicate-0
+end-volume
+
+volume swift-config-read-ahead
+    type performance/read-ahead
+    subvolumes swift-config-write-behind
+end-volume
+
+volume swift-config-io-cache
+    type performance/io-cache
+    subvolumes swift-config-read-ahead
+end-volume
+
+volume swift-config-quick-read
+    type performance/quick-read
+    subvolumes swift-config-io-cache
+end-volume
+
+volume swift-config-md-cache
+    type performance/md-cache
+    subvolumes swift-config-quick-read
+end-volume
+
+volume swift-config
+    type debug/io-stats
+    option latency-measurement off
+    option count-fop-hits off
+    subvolumes swift-config-md-cache
+end-volume
